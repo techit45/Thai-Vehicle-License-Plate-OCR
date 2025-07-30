@@ -36,9 +36,12 @@ static/uploads/*
 captures/*
 !captures/.gitkeep
 
-# Models (large files)
-*.pt
-!models/.gitkeep
+# Firebase service account key (sensitive)
+firebase-service-account.json
+
+# Models (large files - but include best.pt for this project)
+# *.pt
+# !models/.gitkeep
 
 # Logs
 *.log
