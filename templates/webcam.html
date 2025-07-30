@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>📷 Webcam Detection - License Plate Reader</title>
+
+    <!-- External CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+
+    <!-- Custom CSS -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/webcam.css') }}"
+    />
+  </head>
+  <body>
+    <div class="container-fluid">
+      <!-- Header -->
+      <div class="row">
+        <div class="col-12">
+          <div class="header-section">
+            <h1 class="text-center mb-4">
+              <i class="fas fa-video"></i> Webcam License Plate Detection
+            </h1>
+
+            <!-- Navigation -->
+            <div class="text-center mb-4">
+              <a href="/" class="btn btn-outline-primary me-2">
+                <i class="fas fa-upload"></i> อัปโหลดไฟล์
+              </a>
+              <a href="/webcam" class="btn btn-primary me-2">
+                <i class="fas fa-video"></i> เว็บแคม
+              </a>
+              <a href="/dashboard" class="btn btn-outline-info me-2">
+                <i class="fas fa-chart-line"></i> Dashboard
+              </a>
+              <a href="/history" class="btn btn-outline-secondary">
+                <i class="fas fa-history"></i> ประวัติ
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <!-- Left Panel: Settings -->
+        <div class="col-lg-3 col-md-4">
+          <div class="settings-panel">
+            <h5><i class="fas fa-cog"></i> การตั้งค่า</h5>
+
+            <!-- Camera Settings -->
+            <div class="setting-group">
+              <h6><i class="fas fa-camera"></i> กล้อง</h6>
+
+              <div class="mb-3">
+                <label for="cameraSelect" class="form-label">เลือกกล้อง:</label>
+                <select class="form-select" id="cameraSelect">
+                  <option value="0">กล้องหลัก (0)</option>
+                  <option value="1">กล้องรอง (1)</option>
+                  <option value="2">กล้องที่ 3 (2)</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label for="resolutionSelect" class="form-label"
+                  >ความละเอียด:</label
+                >
+                <select class="form-select" id="resolutionSelect">
+                  <option value="640x480">640x480</option>
+                  <option value="1280x720" selected>1280x720 (HD)</option>
+                  <option value="1920x1080">1920x1080 (Full HD)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Detection Settings -->
+            <div class="setting-group">
+              <h6><i class="fas fa-crosshairs"></i> การตรวจจับ</h6>
+
+              <div class="mb-3">
+                <label for="confidenceSlider" class="form-label">
+                  Confidence: <span id="confidenceValue">0.25</span>
+                </label>
+                <input
+                  type="range"
+                  class="form-range"
+                  id="confidenceSlider"
+                  min="0.1"
+                  max="0.9"
+                  step="0.05"
+                  value="0.25"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label for="iouSlider" class="form-label">
+                  IOU Threshold: <span id="iouValue">0.45</span>
+                </label>
+                <input
+                  type="range"
+                  class="form-range"
+                  id="iouSlider"
+                  min="0.1"
+                  max="0.9"
+                  step="0.05"
+                  value="0.45"
+                />
+              </div>
+            </div>
+
+            <!-- Mode Settings -->
+            <div class="setting-group">
+              <h6><i class="fas fa-toggle-on"></i> โหมดการทำงาน</h6>
+
+              <div class="form-check mb-2">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="detectionMode"
+                  id="autoMode"
+                  value="auto"
+                  checked
+                />
+                <label class="form-check-label" for="autoMode">
+                  <i class="fas fa-magic"></i> โหมดอัตโนมัติ
+                </label>
+              </div>
+
+              <div class="form-check mb-3">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="detectionMode"
+                  id="manualMode"
+                  value="manual"
+                />
+                <label class="form-check-label" for="manualMode">
+                  <i class="fas fa-hand-paper"></i> โหมดแมนนวล
+                </label>
+              </div>
+
+              <div class="mb-3" id="autoSettings">
+                <label for="autoInterval" class="form-label">
+                  ความถี่การส่ง API (วินาที): <span id="intervalValue">5</span>
+                </label>
+                <input
+                  type="range"
+                  class="form-range"
+                  id="autoInterval"
+                  min="2"
+                  max="15"
+                  step="1"
+                  value="5"
+                />
+              </div>
+
+              <div class="mb-3" id="manualSettings" style="display: none">
+                <small class="text-muted">
+                  <i class="fas fa-info-circle"></i>
+                  กด 'S' เพื่อแคปภาพและส่ง API
+                </small>
+              </div>
+            </div>
+
+            <!-- Control Buttons -->
+            <div class="setting-group">
+              <h6><i class="fas fa-play"></i> ควบคุม</h6>
+
+              <button class="btn btn-success w-100 mb-2" id="startBtn">
+                <i class="fas fa-play"></i> เริ่มกล้อง
+              </button>
+
+              <button class="btn btn-danger w-100 mb-2" id="stopBtn" disabled>
+                <i class="fas fa-stop"></i> หยุดกล้อง
+              </button>
+
+              <button
+                class="btn btn-warning w-100 mb-2"
+                id="captureBtn"
+                disabled
+              >
+                <i class="fas fa-camera"></i> แคปภาพ
+              </button>
+
+              <button class="btn btn-info w-100 mb-2" id="resetBtn">
+                <i class="fas fa-redo"></i> รีเซ็ตการตั้งค่า
+              </button>
+
+              <button class="btn btn-warning w-100 mb-2" id="forceStopBtn">
+                <i class="fas fa-stop-circle"></i> หยุดการประมวลผล
+              </button>
+
+              <button class="btn btn-danger w-100 mb-2" id="clearBackdropBtn">
+                <i class="fas fa-times-circle"></i> ลบหน้าดำค้าง
+              </button>
+
+              <button class="btn btn-secondary w-100" id="debugBtn">
+                <i class="fas fa-bug"></i> Debug Info
+              </button>
+            </div>
+
+            <!-- Statistics -->
+            <div class="setting-group">
+              <h6><i class="fas fa-chart-line"></i> สถิติ</h6>
+              <div class="stats-display">
+                <div class="stat-item">
+                  <span class="stat-label">FPS:</span>
+                  <span class="stat-value" id="fpsDisplay">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Detections:</span>
+                  <span class="stat-value" id="detectionsCount">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">API Calls:</span>
+                  <span class="stat-value" id="apiCallsCount">0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center Panel: Video Stream -->
+        <div class="col-lg-6 col-md-8">
+          <div class="video-panel">
+            <div class="video-container">
+              <canvas id="videoCanvas" width="640" height="480"></canvas>
+              <div class="video-overlay">
+                <div
+                  class="detection-info"
+                  id="detectionInfo"
+                  style="display: none"
+                >
+                  <span id="detectionText">No Detection</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Status Bar -->
+            <div class="status-bar">
+              <div class="status-item">
+                <i class="fas fa-circle" id="statusIcon"></i>
+                <span id="statusText">Camera Stopped</span>
+              </div>
+              <div class="status-item">
+                <span id="timestamp"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Panel: Results -->
+        <div class="col-lg-3">
+          <div class="results-panel">
+            <h5><i class="fas fa-list-alt"></i> ผลลัพธ์</h5>
+
+            <!-- Latest Result -->
+            <div class="latest-result" id="latestResult" style="display: none">
+              <h6><i class="fas fa-star"></i> ผลล่าสุด</h6>
+              <div class="result-card">
+                <img
+                  id="latestImage"
+                  src=""
+                  alt="Latest capture"
+                  class="img-fluid mb-2"
+                />
+                <div class="result-info">
+                  <div class="license-plate" id="latestPlate">-</div>
+                  <div class="confidence-bar">
+                    <div class="confidence-fill" id="latestConfidence"></div>
+                  </div>
+                  <small class="text-muted" id="latestTime">-</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- Results History -->
+            <div class="results-history">
+              <h6><i class="fas fa-history"></i> ประวัติ (Session นี้)</h6>
+              <div class="results-list" id="resultsList">
+                <div class="empty-results">
+                  <i class="fas fa-camera"></i>
+                  <p>ยังไม่มีผลลัพธ์</p>
+                  <small>เริ่มกล้องเพื่อดูผลลัพธ์</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- Export Options -->
+            <div class="export-options">
+              <h6><i class="fas fa-download"></i> ส่งออกข้อมูล</h6>
+              <button
+                class="btn btn-outline-primary btn-sm w-100 mb-2"
+                id="exportJsonBtn"
+              >
+                <i class="fas fa-file-code"></i> ส่งออก JSON
+              </button>
+              <button
+                class="btn btn-outline-success btn-sm w-100"
+                id="exportCsvBtn"
+              >
+                <i class="fas fa-file-csv"></i> ส่งออก CSV
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div
+      class="modal fade"
+      id="loadingModal"
+      tabindex="-1"
+      data-bs-backdrop="static"
+    >
+      <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-body text-center">
+            <div class="spinner-border text-primary mb-3" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <h6 class="mb-2">
+              <i class="fas fa-camera text-primary"></i>
+              กำลังประมวลผล
+            </h6>
+            <p class="mb-2" id="loadingText">กำลังประมวลผล...</p>
+            <div class="progress mb-2" style="height: 8px">
+              <div
+                class="progress-bar progress-bar-striped progress-bar-animated"
+                role="progressbar"
+                style="width: 100%"
+                id="loadingProgress"
+              ></div>
+            </div>
+            <small class="text-muted mb-3 d-block">
+              <i class="fas fa-clock"></i>
+              โปรดรอสักครู่...
+            </small>
+            <button
+              class="btn btn-warning btn-sm"
+              onclick="forceStopProcessing()"
+            >
+              <i class="fas fa-stop-circle"></i> หยุดการประมวลผล
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div class="modal fade" id="errorModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="fas fa-exclamation-triangle text-warning"></i>
+              ข้อผิดพลาด
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <p id="errorMessage">เกิดข้อผิดพลาดไม่ทราบสาเหตุ</p>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              ปิด
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- External JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/webcam.js') }}"></script>
+  </body>
+</html>

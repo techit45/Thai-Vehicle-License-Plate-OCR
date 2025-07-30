@@ -1,0 +1,21 @@
+# Core Dependencies
+Flask==2.3.3
+ultralytics==8.0.196
+opencv-python==4.8.1.78
+Pillow==10.0.1
+requests==2.31.0
+
+# Firebase
+pyrebase4==4.7.1
+
+# Web Framework
+Werkzeug==2.3.7
+Jinja2==3.1.2
+
+# Image Processing
+numpy==1.24.3
+matplotlib==3.7.2
+
+# Additional utilities
+python-dotenv==1.0.0
+gunicorn==21.2.0

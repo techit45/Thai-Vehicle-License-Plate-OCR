@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🔥 Firebase Dashboard - License Plate Reader</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="{{ url_for('static', filename='css/webcam.css') }}"
+      rel="stylesheet"
+    />
+    <style>
+      .dashboard-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #667eea;
+      }
+
+      .stat-card {
+        text-align: center;
+        padding: 25px 15px;
+      }
+
+      .stat-number {
+        font-size: 2.5em;
+        font-weight: 700;
+        color: #667eea;
+        margin-bottom: 5px;
+      }
+
+      .stat-label {
+        color: #6c757d;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.9em;
+      }
+
+      .recent-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px;
+        margin-bottom: 8px;
+        background: rgba(248, 249, 250, 0.8);
+        border-radius: 8px;
+        border-left: 3px solid #28a745;
+      }
+
+      .recent-item.auto-mode {
+        border-left-color: #007bff;
+      }
+
+      .recent-plate {
+        font-weight: 700;
+        color: #2c3e50;
+        font-size: 1.1em;
+      }
+
+      .recent-details {
+        font-size: 0.85em;
+        color: #6c757d;
+      }
+
+      .confidence-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        font-weight: 600;
+      }
+
+      .confidence-high {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .confidence-medium {
+        background: #fff3cd;
+        color: #856404;
+      }
+
+      .confidence-low {
+        background: #f8d7da;
+        color: #721c24;
+      }
+
+      .search-box {
+        position: relative;
+      }
+
+      .search-results {
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .mode-badge {
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 0.75em;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .mode-auto {
+        background: #e3f2fd;
+        color: #1976d2;
+      }
+
+      .mode-manual {
+        background: #f3e5f5;
+        color: #7b1fa2;
+      }
+
+      .firebase-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9em;
+      }
+
+      .firebase-connected {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .firebase-disconnected {
+        background: #f8d7da;
+        color: #721c24;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid">
+      <!-- Header -->
+      <div class="dashboard-card">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h1><i class="fas fa-chart-line"></i> Firebase Dashboard</h1>
+            <p class="mb-0">ระบบจัดการข้อมูลการตรวจจับป้ายทะเบียน</p>
+          </div>
+          <div>
+            <div
+              id="firebaseStatus"
+              class="firebase-status firebase-disconnected"
+            >
+              <i class="fas fa-circle"></i>
+              <span>กำลังตรวจสอบ...</span>
+            </div>
+            <div class="mt-2">
+              <a href="/webcam" class="btn btn-primary btn-sm">
+                <i class="fas fa-camera"></i> กลับไปกล้อง
+              </a>
+              <a href="/" class="btn btn-secondary btn-sm">
+                <i class="fas fa-home"></i> หน้าแรก
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <!-- Statistics -->
+        <div class="col-lg-3 col-md-6">
+          <div class="dashboard-card stat-card">
+            <div class="stat-number" id="totalDetections">-</div>
+            <div class="stat-label">การตรวจจับทั้งหมด</div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+          <div class="dashboard-card stat-card">
+            <div class="stat-number" id="autoDetections">-</div>
+            <div class="stat-label">Auto Mode (YOLO)</div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+          <div class="dashboard-card stat-card">
+            <div class="stat-number" id="manualDetections">-</div>
+            <div class="stat-label">Manual Mode</div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+          <div class="dashboard-card stat-card">
+            <div class="stat-number" id="avgConfidence">-</div>
+            <div class="stat-label">ความแม่นยำเฉลี่ย</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <!-- Search -->
+        <div class="col-lg-4">
+          <div class="dashboard-card">
+            <h5><i class="fas fa-search"></i> ค้นหาป้ายทะเบียน</h5>
+            <div class="search-box">
+              <div class="input-group">
+                <input
+                  type="text"
+                  id="searchInput"
+                  class="form-control"
+                  placeholder="ป้อนหมายเลขป้ายทะเบียน..."
+                />
+                <button class="btn btn-primary" onclick="searchPlate()">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+            </div>
+
+            <div
+              id="searchResults"
+              class="search-results mt-3"
+              style="display: none"
+            >
+              <h6><i class="fas fa-list"></i> ผลการค้นหา</h6>
+              <div id="searchResultsList"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Detections -->
+        <div class="col-lg-8">
+          <div class="dashboard-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5><i class="fas fa-clock"></i> การตรวจจับล่าสุด</h5>
+              <button
+                class="btn btn-sm btn-outline-primary"
+                onclick="loadRecentDetections()"
+              >
+                <i class="fas fa-sync-alt"></i> รีเฟรช
+              </button>
+            </div>
+            <div id="recentDetections">
+              <div class="text-center text-muted">
+                <i class="fas fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Province Statistics -->
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="dashboard-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5>
+                <i class="fas fa-map-marker-alt"></i> สถิติตามจังหวัดและภาค
+              </h5>
+              <button
+                class="btn btn-sm btn-outline-primary"
+                onclick="loadProvinceStats()"
+              >
+                <i class="fas fa-sync-alt"></i> รีเฟรช
+              </button>
+            </div>
+
+            <div class="row">
+              <!-- Region Stats -->
+              <div class="col-lg-6">
+                <h6><i class="fas fa-globe-asia"></i> สถิติตามภาค</h6>
+                <div id="regionStats" class="mt-3">
+                  <div class="text-center text-muted">
+                    <i class="fas fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...
+                  </div>
+                </div>
+              </div>
+
+              <!-- Province Stats -->
+              <div class="col-lg-6">
+                <h6><i class="fas fa-city"></i> จังหวัดยอดนิยม (Top 10)</h6>
+                <div id="provinceStats" class="mt-3">
+                  <div class="text-center text-muted">
+                    <i class="fas fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Province Analysis Summary -->
+            <div class="row mt-4">
+              <div class="col-12">
+                <div class="alert alert-info">
+                  <h6>
+                    <i class="fas fa-info-circle"></i> สรุปการวิเคราะห์จังหวัด
+                  </h6>
+                  <div id="provinceSummary">
+                    <span class="text-muted">กำลังโหลดข้อมูล...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      let isLoading = false;
+
+      // Load data when page loads
+      window.onload = function () {
+        loadStats();
+        loadRecentDetections();
+        loadProvinceStats();
+      };
+
+      async function checkFirebaseStatus() {
+        try {
+          const response = await fetch("/api/info");
+          const data = await response.json();
+
+          const statusElement = document.getElementById("firebaseStatus");
+          if (data.firebase_connected) {
+            statusElement.className = "firebase-status firebase-connected";
+            statusElement.innerHTML =
+              '<i class="fas fa-check-circle"></i><span>เชื่อมต่อแล้ว</span>';
+          } else {
+            statusElement.className = "firebase-status firebase-disconnected";
+            statusElement.innerHTML =
+              '<i class="fas fa-exclamation-triangle"></i><span>ไม่เชื่อมต่อ</span>';
+          }
+        } catch (error) {
+          console.error("Failed to check Firebase status:", error);
+        }
+      }
+
+      async function loadStats() {
+        try {
+          const response = await fetch("/api/firebase/stats");
+          const data = await response.json();
+
+          if (data.success && data.stats) {
+            document.getElementById("totalDetections").textContent =
+              data.stats.total_detections || 0;
+            document.getElementById("autoDetections").textContent =
+              data.stats.auto_detections || 0;
+            document.getElementById("manualDetections").textContent =
+              data.stats.manual_detections || 0;
+
+            const avgConf = data.stats.avg_confidence_api || 0;
+            document.getElementById("avgConfidence").textContent =
+              (avgConf * 100).toFixed(1) + "%";
+          }
+        } catch (error) {
+          console.error("Failed to load stats:", error);
+        }
+      }
+
+      async function loadRecentDetections() {
+        if (isLoading) return;
+        isLoading = true;
+
+        try {
+          const response = await fetch("/api/firebase/recent?limit=20");
+          const data = await response.json();
+
+          console.log("Recent detections data:", data); // Debug log
+
+          const container = document.getElementById("recentDetections");
+
+          if (data.success && data.detections && data.detections.length > 0) {
+            container.innerHTML = data.detections
+              .map((detection) => {
+                const confidence = (detection.confidence_api * 100).toFixed(1);
+                const confidenceClass =
+                  confidence >= 90
+                    ? "confidence-high"
+                    : confidence >= 70
+                    ? "confidence-medium"
+                    : "confidence-low";
+
+                const modeClass =
+                  detection.detection_mode === "auto"
+                    ? "mode-auto"
+                    : "mode-manual";
+                const modeText =
+                  detection.detection_mode === "auto"
+                    ? "Auto (YOLO)"
+                    : "Manual";
+
+                return `
+                            <div class="recent-item ${
+                              detection.detection_mode === "auto"
+                                ? "auto-mode"
+                                : ""
+                            }">
+                                <div>
+                                    <div class="recent-plate">${
+                                      detection.license_plate
+                                    }</div>
+                                    <div class="recent-details">
+                                        <span class="mode-badge ${modeClass}">${modeText}</span>
+                                        ${
+                                          detection.province
+                                            ? `<small><i class="fas fa-map-marker-alt"></i> ${detection.province}</small>`
+                                            : ""
+                                        }
+                                        ${
+                                          detection.confidence_yolo
+                                            ? `<small>YOLO: ${(
+                                                detection.confidence_yolo * 100
+                                              ).toFixed(1)}%</small>`
+                                            : ""
+                                        }
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="confidence-badge ${confidenceClass}">
+                                        ${confidence}%
+                                    </div>
+                                    <div class="recent-details">
+                                        ${detection.timestamp || "ไม่ระบุเวลา"}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+              })
+              .join("");
+          } else {
+            console.log("No detections found or API error:", data); // Debug log
+            container.innerHTML = `
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-2x mb-2"></i>
+                            <p>ยังไม่มีข้อมูลการตรวจจับ</p>
+                            <small>API Response: ${
+                              data.success ? "Success" : "Failed"
+                            }</small>
+                        </div>
+                    `;
+          }
+        } catch (error) {
+          console.error("Failed to load recent detections:", error);
+          document.getElementById("recentDetections").innerHTML = `
+                    <div class="text-center text-danger py-4">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <p>เกิดข้อผิดพลาดในการโหลดข้อมูล</p>
+                        <small>Error: ${error.message}</small>
+                    </div>
+                `;
+        } finally {
+          isLoading = false;
+        }
+      }
+
+      async function searchPlate() {
+        const searchTerm = document.getElementById("searchInput").value.trim();
+        if (!searchTerm) return;
+
+        const resultsContainer = document.getElementById("searchResults");
+        const resultsList = document.getElementById("searchResultsList");
+
+        resultsContainer.style.display = "block";
+        resultsList.innerHTML =
+          '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> กำลังค้นหา...</div>';
+
+        try {
+          const response = await fetch(
+            `/api/firebase/search?license_plate=${encodeURIComponent(
+              searchTerm
+            )}`
+          );
+          const data = await response.json();
+
+          if (data.success && data.results.length > 0) {
+            resultsList.innerHTML = data.results
+              .map((result) => {
+                const confidence = (result.confidence_api * 100).toFixed(1);
+                const confidenceClass =
+                  confidence >= 90
+                    ? "confidence-high"
+                    : confidence >= 70
+                    ? "confidence-medium"
+                    : "confidence-low";
+
+                const modeClass =
+                  result.detection_mode === "auto"
+                    ? "mode-auto"
+                    : "mode-manual";
+                const modeText =
+                  result.detection_mode === "auto" ? "Auto" : "Manual";
+
+                return `
+                            <div class="recent-item">
+                                <div>
+                                    <div class="recent-plate">${
+                                      result.license_plate
+                                    }</div>
+                                    <div class="recent-details">
+                                        <span class="mode-badge ${modeClass}">${modeText}</span>
+                                        ${
+                                          result.confidence_yolo
+                                            ? `<small>YOLO: ${(
+                                                result.confidence_yolo * 100
+                                              ).toFixed(1)}%</small>`
+                                            : ""
+                                        }
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="confidence-badge ${confidenceClass}">
+                                        ${confidence}%
+                                    </div>
+                                    <div class="recent-details">
+                                        ${result.timestamp || "ไม่ระบุเวลา"}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+              })
+              .join("");
+          } else {
+            resultsList.innerHTML = `
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-search fa-lg mb-2"></i>
+                            <p>ไม่พบข้อมูลป้ายทะเบียน "${searchTerm}"</p>
+                        </div>
+                    `;
+          }
+        } catch (error) {
+          console.error("Search failed:", error);
+          resultsList.innerHTML = `
+                    <div class="text-center text-danger py-3">
+                        <i class="fas fa-exclamation-triangle fa-lg mb-2"></i>
+                        <p>เกิดข้อผิดพลาดในการค้นหา</p>
+                    </div>
+                `;
+        }
+      }
+
+      // Load Province Statistics
+      async function loadProvinceStats() {
+        try {
+          const response = await fetch("/api/province-stats");
+          const data = await response.json();
+
+          if (data.success && data.stats) {
+            displayProvinceStats(data.stats);
+          } else {
+            document.getElementById("regionStats").innerHTML = `
+              <div class="text-center text-danger">
+                <i class="fas fa-exclamation-triangle"></i> ไม่สามารถโหลดสถิติจังหวัดได้
+              </div>
+            `;
+          }
+        } catch (error) {
+          console.error("Failed to load province stats:", error);
+          document.getElementById("regionStats").innerHTML = `
+            <div class="text-center text-danger">
+              <i class="fas fa-exclamation-triangle"></i> เกิดข้อผิดพลาดในการโหลดข้อมูล
+            </div>
+          `;
+        }
+      }
+
+      // Display Province Statistics
+      function displayProvinceStats(stats) {
+        // Region Statistics
+        const regionStats = document.getElementById("regionStats");
+        const regionData = stats.top_regions || [];
+
+        if (regionData.length > 0) {
+          regionStats.innerHTML = regionData
+            .map(
+              ([region, count]) => `
+            <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+              <span><i class="fas fa-globe-asia text-primary"></i> ${region}</span>
+              <span class="badge bg-primary">${count}</span>
+            </div>
+          `
+            )
+            .join("");
+        } else {
+          regionStats.innerHTML =
+            '<div class="text-muted">ยังไม่มีข้อมูล</div>';
+        }
+
+        // Province Statistics
+        const provinceStats = document.getElementById("provinceStats");
+        const provinceData = stats.top_provinces || [];
+
+        if (provinceData.length > 0) {
+          provinceStats.innerHTML = provinceData
+            .map(([province, count], index) => {
+              const iconClass =
+                index < 3
+                  ? "fas fa-crown text-warning"
+                  : "fas fa-city text-secondary";
+              return `
+              <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                <span><i class="${iconClass}"></i> ${province}</span>
+                <span class="badge bg-success">${count}</span>
+              </div>
+            `;
+            })
+            .join("");
+        } else {
+          provinceStats.innerHTML =
+            '<div class="text-muted">ยังไม่มีข้อมูล</div>';
+        }
+
+        // Province Analysis Summary
+        const provinceSummary = document.getElementById("provinceSummary");
+        const totalAnalyzed = stats.total_analyzed || 0;
+        const totalWithProvince = stats.total_with_province || 0;
+        const successRate = (stats.success_rate || 0) * 100;
+
+        provinceSummary.innerHTML = `
+          <div class="row text-center">
+            <div class="col-md-4">
+              <div class="stat-number text-primary">${totalWithProvince}</div>
+              <div class="stat-label">มีข้อมูลจังหวัด</div>
+            </div>
+            <div class="col-md-4">
+              <div class="stat-number text-success">${totalAnalyzed}</div>
+              <div class="stat-label">วิเคราะห์สำเร็จ</div>
+            </div>
+            <div class="col-md-4">
+              <div class="stat-number text-info">${successRate.toFixed(
+                1
+              )}%</div>
+              <div class="stat-label">อัตราความสำเร็จ</div>
+            </div>
+          </div>
+        `;
+      }
+    </script>
+  </body>
+</html>
